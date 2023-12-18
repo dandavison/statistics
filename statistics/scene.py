@@ -1,27 +1,37 @@
-import random
-from math import cos, sin
+from dataclasses import dataclass
 
-import manim as m
-from manim import *
+import manim as ma
+from manim import DOWN, ORIGIN
 
-m = m
+from lib.histogram import Histogram
+from lib.prob_dist import TruncatedNormalDist
+from lib.rtg import Rtg as AbstractRtg
+from lib.rtg import Thing
 
 
-class RandomThingGenerator(Scene):
+@dataclass
+class Rtg(AbstractRtg[float, ma.Circle, ma.Text]):
+    prob_dist: TruncatedNormalDist
+    mobj: ma.Circle
+
+    def make_thing(self, x: float) -> Thing[float, ma.Text]:
+        return Thing(x, ma.Text(f"{x:.3}", font_size=24))
+
+
+class HistogramScene(ma.Scene):
     def construct(self):
-        things = [Text(str(i), font_size=72) for i in range(1, 10 + 1)]
+        x_min, x_max = 0.0, 10.0
+        rtg = Rtg(TruncatedNormalDist(x_min, x_max), ma.Circle())
+        hist = Histogram(x_min, x_max, 40)
 
-        circle = Circle()
-        origin = circle.get_center()
-        self.add(circle)
+        self.add(rtg.mobj, hist.number_line, *hist.bins)
+        rtg.mobj.move_to(ORIGIN + DOWN * 2)
 
-        for _ in range(10):
-            [t] = random.sample(things, 1)
-            theta = 2 * PI * random.random()
-            direction = np.array((cos(theta), sin(theta), 0))
-            target_position = origin + direction * 10
-            self.add(t)
-            t.move_to(origin)
-            anim = ApplyMethod(t.move_to, target_position)
+        for _ in range(100):
+            [t] = rtg.generate(1)
+            self.add(t.mobj)
+            target_point = hist.number_line.number_to_point(t.val)
+            anim = ma.ApplyMethod(t.mobj.move_to, target_point)
             self.play(anim)
-            self.wait()
+            self.remove(t.mobj)
+            hist.accept(t.val)
